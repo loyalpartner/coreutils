@@ -2455,13 +2455,14 @@ pub fn localize_to_target(root: &Path, source: &Path, target: &Path) -> CopyResu
 fn disk_usage(paths: &[PathBuf], recursive: bool) -> io::Result<u64> {
     let mut total = 0;
     for p in paths {
-        let md = fs::metadata(p)?;
-        if md.file_type().is_dir() {
-            if recursive {
-                total += disk_usage_directory(p)?;
+        if let Ok(md) = fs::metadata(p) {
+            if md.file_type().is_dir() {
+                if recursive {
+                    total += disk_usage_directory(p).unwrap_or(0);
+                }
+            } else {
+                total += md.len();
             }
-        } else {
-            total += md.len();
         }
     }
     Ok(total)
@@ -2474,9 +2475,11 @@ fn disk_usage_directory(p: &Path) -> io::Result<u64> {
     for entry in fs::read_dir(p)? {
         let entry = entry?;
         if entry.file_type()?.is_dir() {
-            total += disk_usage_directory(&entry.path())?;
+            total += disk_usage_directory(&entry.path()).unwrap_or(0);
         } else {
-            total += entry.metadata()?.len();
+            if let Ok(entry) = entry.metadata() {
+                total += entry.len();
+            }
         }
     }
 
